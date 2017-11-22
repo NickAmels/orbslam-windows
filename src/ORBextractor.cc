@@ -60,7 +60,6 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <vector>
 #include <iterator>
-
 #include "ORBextractor.h"
 
 

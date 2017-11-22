@@ -30,7 +30,7 @@ long unsigned int MapPoint::nNextId=0;
 mutex MapPoint::mGlobalMutex;
 
 MapPoint::MapPoint(const cv::Mat &Pos, KeyFrame *pRefKF, Map* pMap):
-    mnFirstKFid(pRefKF->mnId), mnFirstFrame(pRefKF->mnFrameId), nObs(0), mnTrackReferenceForFrame(0),
+    mnFirstKFid(pRefKF->mnId), mnFirstFrame(pRefKF->mnFrameId), nObs(0),mbTrackInView(false), mnTrackReferenceForFrame(0),
     mnLastFrameSeen(0), mnBALocalForKF(0), mnFuseCandidateForKF(0), mnLoopPointForKF(0), mnCorrectedByKF(0),
     mnCorrectedReference(0), mnBAGlobalForKF(0), mpRefKF(pRefKF), mnVisible(1), mnFound(1), mbBad(false),
     mpReplaced(static_cast<MapPoint*>(NULL)), mfMinDistance(0), mfMaxDistance(0), mpMap(pMap)
@@ -44,7 +44,7 @@ MapPoint::MapPoint(const cv::Mat &Pos, KeyFrame *pRefKF, Map* pMap):
 }
 
 MapPoint::MapPoint(const cv::Mat &Pos, Map* pMap, Frame* pFrame, const int &idxF):
-    mnFirstKFid(-1), mnFirstFrame(pFrame->mnId), nObs(0), mnTrackReferenceForFrame(0), mnLastFrameSeen(0),
+    mnFirstKFid(-1), mnFirstFrame(pFrame->mnId), nObs(0),mbTrackInView(false), mnTrackReferenceForFrame(0), mnLastFrameSeen(0),
     mnBALocalForKF(0), mnFuseCandidateForKF(0),mnLoopPointForKF(0), mnCorrectedByKF(0),
     mnCorrectedReference(0), mnBAGlobalForKF(0), mpRefKF(static_cast<KeyFrame*>(NULL)), mnVisible(1),
     mnFound(1), mbBad(false), mpReplaced(NULL), mpMap(pMap)
@@ -270,27 +270,26 @@ void MapPoint::ComputeDistinctiveDescriptors()
         return;
 
     // Compute distances between them
-    size_t N = vDescriptors.size();
+    const size_t N = vDescriptors.size();
 	std::vector<std::vector<float> > Distances;
 	Distances.resize(N, vector<float>(N, 0));
-	for (size_t i = 0; i<N; i++)
-	{
-		Distances[i][i] = 0;
-		for (size_t j = i + 1;j<N;j++)
-		{
-			int distij = ORBmatcher::DescriptorDistance(vDescriptors[i], vDescriptors[j]);
-			Distances[i][j] = distij;
-			Distances[j][i] = distij;
-		}
-	}
-
+    for(size_t i=0;i<N;i++)
+    {
+        Distances[i][i]=0;
+        for(size_t j=i+1;j<N;j++)
+        {
+            int distij = ORBmatcher::DescriptorDistance(vDescriptors[i],vDescriptors[j]);
+            Distances[i][j]=distij;
+            Distances[j][i]=distij;
+        }
+    }
 
     // Take the descriptor with least median distance to the rest
     int BestMedian = INT_MAX;
     int BestIdx = 0;
     for(size_t i=0;i<N;i++)
     {
-        vector<int> vDists(Distances[i].begin(),Distances[i].end());
+		vector<int> vDists(Distances[i].begin(), Distances[i].end());
         sort(vDists.begin(),vDists.end());
         int median = vDists[0.5*(N-1)];
 
@@ -417,6 +416,43 @@ int MapPoint::PredictScale(const float &currentDist, Frame* pF)
     return nScale;
 }
 
+MapPoint::MapPoint():
+    nObs(0), mnTrackReferenceForFrame(0),
+    mnLastFrameSeen(0), mnBALocalForKF(0), mnFuseCandidateForKF(0), mnLoopPointForKF(0), mnCorrectedByKF(0),
+    mnCorrectedReference(0), mnBAGlobalForKF(0),mnVisible(1), mnFound(1), mbBad(false),
+    mpReplaced(static_cast<MapPoint*>(NULL)), mfMinDistance(0), mfMaxDistance(0)
+{}
+template<class Archive>
+void MapPoint::serialize(Archive &ar, const unsigned int version)
+{
+    ar & mnId & nNextId & mnFirstKFid & mnFirstFrame & nObs;
+    // Tracking related vars
+    ar & mTrackProjX;
+    ar & mTrackProjY;
+    ar & mTrackProjXR;
+    ar & mbTrackInView;
+    ar & mnTrackScaleLevel;
+    ar & mTrackViewCos;
+    ar & mnTrackReferenceForFrame;
+    ar & mnLastFrameSeen;
+    // Local Mapping related vars
+    ar & mnBALocalForKF & mnFuseCandidateForKF;
+    // Loop Closing related vars
+    ar & mnLoopPointForKF & mnCorrectedByKF & mnCorrectedReference & mPosGBA & mnBAGlobalForKF;
+    // don't save the mutex
+    ar & mWorldPos;
+    ar & mObservations;
+    ar & mNormalVector;
+    ar & mDescriptor;
+    ar & mpRefKF;
+    ar & mnVisible & mnFound;
+    ar & mbBad & mpReplaced;
+    ar & mfMinDistance & mfMaxDistance;
+    ar & mpMap;
+    // don't save the mutex
+}
+template void MapPoint::serialize(boost::archive::binary_iarchive&, const unsigned int);
+template void MapPoint::serialize(boost::archive::binary_oarchive&, const unsigned int);
 
 
 } //namespace ORB_SLAM

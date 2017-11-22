@@ -1,0 +1,4 @@
+JointTrajectory.msg
+JointTrajectoryPoint.msg
+MultiDOFJointTrajectory.msg
+MultiDOFJointTrajectoryPoint.msg
